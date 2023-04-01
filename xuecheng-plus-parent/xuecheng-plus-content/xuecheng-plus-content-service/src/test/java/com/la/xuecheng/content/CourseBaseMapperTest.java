@@ -61,6 +61,8 @@ public class CourseBaseMapperTest {
         pageResult.setPageSize(result.getSize());
         pageResult.setCounts(result.getTotal());
         pageResult.setItems(result.getRecords());
+
+        System.out.println(pageResult);
     }
 
 }

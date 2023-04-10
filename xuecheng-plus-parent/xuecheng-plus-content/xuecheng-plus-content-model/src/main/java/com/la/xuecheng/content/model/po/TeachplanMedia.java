@@ -1,7 +1,10 @@
 package com.la.xuecheng.content.model.po;
 
 import com.baomidou.mybatisplus.annotation.*;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -13,8 +16,12 @@ import java.time.LocalDateTime;
  *
  * @author itcast
  */
-@Data
+
+@AllArgsConstructor
+@NoArgsConstructor
+@ToString
 @TableName("teachplan_media")
+@Data
 public class TeachplanMedia implements Serializable {
 
     private static final long serialVersionUID = 1L;

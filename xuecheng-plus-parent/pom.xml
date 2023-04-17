@@ -11,6 +11,8 @@
         <module>xuecheng-plus-content</module>
         <module>xuecheng-plus-generator</module>
         <module>xuecheng-plus-system</module>
+        <module>xuecheng-plus-gateway</module>
+        <module>xuecheng-plus-media</module>
     </modules>
     <name>xuecheng-plus-parent</name>
     <description>xuecheng-plus-parent</description>

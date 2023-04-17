@@ -38,7 +38,7 @@ public class CourseBaseInfoController {
     @ApiOperation("新增课程")
     @PostMapping("/course")
     public CourseBaseInfoDto createCourseBase(@RequestBody @Validated(value = ValidationGroups.Insert.class) AddCourseDto addCourseDto){
-        Long companyId = 123L;
+        Long companyId = 1232141425L;
         CourseBaseInfoDto courseBaseInfoDto = courseBaseInfoService.createCourseBase(companyId, addCourseDto);
         return courseBaseInfoDto;
     }

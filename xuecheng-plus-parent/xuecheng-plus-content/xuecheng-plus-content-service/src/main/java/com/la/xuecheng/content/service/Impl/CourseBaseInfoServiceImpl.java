@@ -234,14 +234,7 @@ public class CourseBaseInfoServiceImpl implements CourseBaseInfoService {
         //从数据库查询营销信息，存在则更新，不存在则添加
         Long id = newCourseMarket.getId();
         CourseMarket courseMarket = courseMarketMapper.selectById(id);
-        if(courseMarket != null && charge.equals("201000")){
-            courseMarketMapper.deleteById(id);
-            return;
-        }
         if(courseMarket == null){
-            if(charge.equals("201000")){
-                return;
-            }
             int res = courseMarketMapper.insert(newCourseMarket);
             if(res <= 0){
                 //throw new RuntimeException("添加营销信息失败");

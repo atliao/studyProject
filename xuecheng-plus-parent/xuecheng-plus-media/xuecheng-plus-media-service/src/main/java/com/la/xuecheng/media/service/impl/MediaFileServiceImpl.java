@@ -9,13 +9,14 @@ import com.la.xuecheng.base.model.PageParams;
 import com.la.xuecheng.base.model.PageResult;
 import com.la.xuecheng.base.model.RestResponse;
 import com.la.xuecheng.media.mapper.MediaFilesMapper;
+import com.la.xuecheng.media.mapper.MediaProcessMapper;
 import com.la.xuecheng.media.model.dto.QueryMediaParamsDto;
 import com.la.xuecheng.media.model.dto.UploadFileParamsDto;
 import com.la.xuecheng.media.model.dto.UploadFileResultDto;
 import com.la.xuecheng.media.model.po.MediaFiles;
+import com.la.xuecheng.media.model.po.MediaProcess;
 import com.la.xuecheng.media.service.MediaFileService;
 import io.minio.*;
-import io.minio.errors.*;
 import io.minio.messages.DeleteError;
 import io.minio.messages.DeleteObject;
 import lombok.extern.slf4j.Slf4j;
@@ -30,15 +31,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.io.*;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+
 
 /**
  * @description TODO
@@ -52,6 +50,9 @@ public class MediaFileServiceImpl implements MediaFileService {
 
     @Resource
     MediaFilesMapper mediaFilesMapper;
+
+    @Resource
+    MediaProcessMapper mediaProcessMapper;
 
     @Resource
     MinioClient minioClient;
@@ -164,7 +165,7 @@ public class MediaFileServiceImpl implements MediaFileService {
     }
 
    //上传文件到minio
-   private boolean addMediaFilesToMinIO(String mimeType, String localFilePath, String bucket, String objectName){
+   public boolean addMediaFilesToMinIO(String mimeType, String localFilePath, String bucket, String objectName){
        try {
            //上传文件的参数信息
            UploadObjectArgs uploadObjectArgs = UploadObjectArgs.builder()
@@ -184,6 +185,12 @@ public class MediaFileServiceImpl implements MediaFileService {
        }
        return true;
    }
+
+    @Override
+    public MediaFiles getFileById(String mediaId) {
+        MediaFiles mediaFiles = mediaFilesMapper.selectById(mediaId);
+        return mediaFiles;
+    }
 
     //入库media数据库
     @Transactional //在此处添加事务管理
@@ -217,10 +224,38 @@ public class MediaFileServiceImpl implements MediaFileService {
                 log.debug("向数据库保存文件失败,bucket:{},objectName:{}",bucket,objectName);
                 return null;
             }
+            //记录待处理任务
+            addWaitingTask(mediaFiles);
             return mediaFiles;
 
         }
         return mediaFiles;
+
+    }
+
+    /**
+     * 添加待处理任务
+     * @param mediaFiles 媒资文件信息
+     */
+    private void addWaitingTask(MediaFiles mediaFiles){
+
+        //文件名称
+        String filename = mediaFiles.getFilename();
+        //文件扩展名
+        String extension = filename.substring(filename.lastIndexOf("."));
+        //获取文件的 mimeType
+        String mimeType = getMimeType(extension);
+        if(mimeType.equals("video/x-msvideo")){//如果是avi视频写入待处理任务
+            MediaProcess mediaProcess = new MediaProcess();
+            BeanUtils.copyProperties(mediaFiles,mediaProcess);
+            //状态是未处理
+            mediaProcess.setStatus("1");
+            mediaProcess.setCreateDate(LocalDateTime.now());
+            mediaProcess.setFailCount(0);//失败次数默认0
+            mediaProcess.setUrl(null);
+            mediaProcessMapper.insert(mediaProcess);
+
+        }
 
     }
 
@@ -267,6 +302,7 @@ public class MediaFileServiceImpl implements MediaFileService {
                 .build();
         //查询远程服务获取到一个流对象
         try {
+            //GetObjectResponse object = minioClient.getObject(getObjectArgs);
             FilterInputStream inputStream = minioClient.getObject(getObjectArgs);
             if(inputStream!=null){
                 //文件已存在

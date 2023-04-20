@@ -1,5 +1,6 @@
 package com.la.xuecheng.content.service;
 
+import com.la.xuecheng.content.model.dto.BindTeachplanMediaDto;
 import com.la.xuecheng.content.model.dto.SaveTeachPlanDto;
 import com.la.xuecheng.content.model.dto.TeachplanDto;
 import com.la.xuecheng.content.model.po.CourseTeacher;
@@ -26,4 +27,6 @@ public interface TeachPlanService {
     public CourseTeacher updateTeacher(CourseTeacher courseTeacher);
 
     public void deleteTeacher(Long courseId, Long id);
+
+    public void associationMedia(BindTeachplanMediaDto bindTeachplanMediaDto);
 }

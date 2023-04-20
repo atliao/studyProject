@@ -1,5 +1,6 @@
 package com.la.xuecheng.media.service.jobHandler;
 
+import com.xxl.job.core.context.XxlJobHelper;
 import com.xxl.job.core.handler.annotation.XxlJob;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,4 +33,19 @@ public class SampleXxlJob {
 
         // default success
     }
+
+    /**
+     * 2、分片广播任务
+     */
+    @XxlJob("shardingJobHandler")
+    public void shardingJobHandler() throws Exception {
+
+        // 分片参数
+        int shardIndex = XxlJobHelper.getShardIndex();//执行器的序号，从0开始
+        int shardTotal = XxlJobHelper.getShardTotal();//执行器总数
+
+        System.out.println("shardIndex="+shardIndex+",shardTotal="+shardTotal);
+
+    }
+
 }

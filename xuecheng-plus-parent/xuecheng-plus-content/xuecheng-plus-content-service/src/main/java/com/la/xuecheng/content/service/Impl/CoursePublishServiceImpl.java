@@ -3,6 +3,8 @@ package com.la.xuecheng.content.service.Impl;
 import com.alibaba.fastjson.JSON;
 import com.la.xuecheng.base.exception.CommonError;
 import com.la.xuecheng.base.exception.XuechengPlusException;
+import com.la.xuecheng.content.config.MultipartSupportConfig;
+import com.la.xuecheng.content.feignClient.MediaServiceClient;
 import com.la.xuecheng.content.mapper.CourseBaseMapper;
 import com.la.xuecheng.content.mapper.CourseMarketMapper;
 import com.la.xuecheng.content.mapper.CoursePublishMapper;
@@ -19,14 +21,23 @@ import com.la.xuecheng.content.service.CoursePublishService;
 import com.la.xuecheng.content.service.TeachPlanService;
 import com.la.xuecheng.messagesdk.model.po.MqMessage;
 import com.la.xuecheng.messagesdk.service.MqMessageService;
+import freemarker.template.Configuration;
+import freemarker.template.Template;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -59,6 +70,9 @@ public class CoursePublishServiceImpl implements CoursePublishService {
 
     @Resource
     MqMessageService mqMessageService;
+
+    @Resource
+    MediaServiceClient mediaServiceClient;
 
 
 
@@ -194,6 +208,74 @@ public class CoursePublishServiceImpl implements CoursePublishService {
             XuechengPlusException.cast(CommonError.UNKOWN_ERROR);
         }
 
+    }
+
+    @Override
+    public File generateCourseHtml(Long courseId) {
+
+        Configuration configuration = new Configuration(Configuration.getVersion());
+        //最终的静态文件
+        File htmlFile = null;
+        try {
+            //拿到classpath路径
+            String classpath = this.getClass().getResource("/").getPath();
+            //指定模板的目录
+            configuration.setDirectoryForTemplateLoading(new File(classpath+"/templates/"));
+            //指定编码
+            configuration.setDefaultEncoding("utf-8");
+
+            //得到模板
+            Template template = configuration.getTemplate("course_template.ftl");
+            //准备数据
+            CoursePreviewDto coursePreviewInfo = this.getCoursePreviewInfo(courseId);
+            HashMap<String, Object> map = new HashMap<>();
+            map.put("model",coursePreviewInfo);
+
+            //Template template 模板, Object model 数据
+            String html = FreeMarkerTemplateUtils.processTemplateIntoString(template, map);
+            //输入流
+            InputStream inputStream = IOUtils.toInputStream(html, "utf-8");
+            htmlFile = File.createTempFile("coursepublish",".html");
+            //输出文件
+            FileOutputStream outputStream = new FileOutputStream(htmlFile);
+            //使用流将html写入文件
+            IOUtils.copy(inputStream,outputStream);
+        }catch (Exception ex){
+            log.error("页面静态化出现问题,课程id:{}",courseId,ex);
+            ex.printStackTrace();
+        }
+
+        return htmlFile;
+    }
+
+    @Override
+    public void uploadCourseHtml(Long courseId, File file) {
+        try {
+            //将file转成MultipartFile
+            MultipartFile multipartFile = MultipartSupportConfig.getMultipartFile(file);
+            //远程调用得到返回值
+            String upload = mediaServiceClient.upload(multipartFile, "course/"+courseId+".html");
+            if(upload==null){
+                log.debug("远程调用走降级逻辑得到上传的结果为null,课程id:{}",courseId);
+                XuechengPlusException.cast("上传静态文件过程中存在异常");
+            }
+        }catch (Exception ex){
+            ex.printStackTrace();
+            XuechengPlusException.cast("上传静态文件过程中存在异常");
+        }
+
+    }
+
+
+    /**
+     * 根据课程 id查询课程发布信息
+     * @param courseId
+     * @return
+     */
+    @Override
+    public CoursePublish getCoursePublish(Long courseId){
+        CoursePublish coursePublish = coursePublishMapper.selectById(courseId);
+        return coursePublish ;
     }
 
 

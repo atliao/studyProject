@@ -29,7 +29,7 @@ public class CourseBaseInfoServiceTest {
         QueryCourseParamsDto queryCourseParamsDto = new QueryCourseParamsDto();
         queryCourseParamsDto.setCourseName("java");
 
-        PageResult<CourseBase> pageResult = courseBaseInfoService.queryCourseBaseList(pageParams, queryCourseParamsDto);
+        PageResult<CourseBase> pageResult = courseBaseInfoService.queryCourseBaseList(1232141425L, pageParams, queryCourseParamsDto);
 
         System.out.println(pageResult);
     }

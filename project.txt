@@ -1,0 +1,148 @@
+使用docker，nacos
+根据请求创建Dto类，根据返回要求，创建返回类型
+使用mybatis-generator来生成po类
+1.数据库树形结构
+	层数少，外连接
+	层数多，SQL循环查询
+	在java构建树形结构
+2.分布式文件系统minio，半数以上存活即可用
+3.跨域（一个端口访问另一个端口，不能直接访问），需要允许浏览器的跨域访问
+4.@Transaction注解最好不要直接用在一整个方法中，避免因网络问题导致文件上传慢，而导致事务一直无法处理完
+5.非事务方法调用事务方法，事务无法被控制（不是代理类执行事务处理）（事务生效：当前执行对象是代理对象+@Transaction注解）
+	只要通过注解@Resource等注入的都是代理对象，因此可以把类注入，让自己成为代理对象，并将方法提取到接口层，解决非代理对象问题
+6.断点续传:将文件分为几个部分，从断点处重新上传。（作用：如避免网络不好，断开后重新上传）
+	分块上传：前端先将上传文件分块，一块一块上传，中断恢复后重新从中断块开始上传，各段上传完后在服务端合并
+	上传前先检查文件以及当前分块是否存在
+7.视频转码(avi 转 mp4)
+	视频H.264 音频ACC
+	使用工具FFmpeg
+8.分布式任务处理 分布式任务调度 P77
+9.调度中心 与 执行器 xxl-job : 过期策略(忽略)：数据库中存在下一条任务执行的理论时间，如果当前时间超过了理论时间+5s，则选择忽略，避免重复执行
+10.分布式锁：虽然执行器分配id，并按任务id除余来确定哪个执行器执行任务，但由于网络原因，如执行器0断网后，任务调度中心重新分配执行器序号，原来的1号执行器变为0，2号变为1，此时会为原2号执行器分配余数为1的任务，但此时的0号执行器（原1号，还在执行该余数为1的相同任务（还未完成）），则此时发生冲突，需要锁来控制资源，避免重复执行任务
+	同一个java虚拟机内，不同线程可以用sychronized锁来实现资源控制，但分布式服务中，不同服务在不同的java虚拟机中，需要一个单独的服务，来分配锁。可以使用数据库来实现。
+11.freemarker模板引擎
+	模板+渲染
+12.nginx代理中心，location中，不加/，则最后的路径是proxy_pass+location；加了/，最后的路径就是proxy_pass
+13.审核机制：客户和审核人员都可以查询信息，审核完成前客户都可以修改信息，建立预发布表，审核人员查询预发布表，审核通过后将预发布表的信息存入发布表；客户可修改自己的审核表，互不冲突，当提交审核表后，提交到预发布表，审核人员又去审核预发布表，审核通过后更新到发布表。客人可以从发布表发布自己需要的一版信息。但审核人员正在审核中时，客户不能提交自己的修改。
+14.发布课程后，所有人都可以查看，为提高性能：
+	课程发布后，信息除了存入数据库，还要做：
+	Redis做数据缓存
+	Elasticsearch建立索引
+	静态页面放在minio中，页面渲染不放在tomcat中，tomcat性能很差，放在ngnix中（nginx并发可达5w）
+15.分布式事务：一次课程发布需要操作数据库，redis，elasticsearch，minio，存在分布式事务问题
+	本地事务：通过springboot控制本地数据库进行更新插入删除操作，控制提交和回滚，使用服务自己的数据库
+	分布式事务：四种服务不限制于同一个数据库，有各自的数据存储地址，四个服务通信需要网络，通过与不同服务进行网络通信来完成一个事务称为分布式事务。但由于网络存在延时等问题，会导致反馈数据不及时，从而导致认为操作失败，回滚，此时远程服务数据以修改，而本地因操作失败而回滚，造成数据不一致
+16.cap理论
+	假设通过网关负载均衡访问多个节点，多个节点可能是分开部署的，不属于同一数据库
+	一致性Consistency：服务时，所有节点数据都是最新的，不能存在有些节点数据没有改变的情况，导致查询的数据出现两次不一致（这里是强一致性）
+	可用性Availability：任何时候用户访问，都能查询到数据，不用等待服务数据一致后再查询，但不能保证查到最新数据
+	分区容忍性Partition tolerance：当系统采用分布式架构时，由于网络通信问题请求中断、消息丢失等，但仍对外提供服务
+	在分布式系统中，必须满足P，因此C和A只能满足一个：
+		满足CP，则用户需要等待各节点数据同步后，才能拿到信息
+		满足AP，则用户可以立即拿到数据，但不一定是最新的	
+	根据业务需求，来选择：如银行转账，一定是CP；如订单退款，不一定马上到账，可以等一会儿，用AP
+	一般来说AP较多，CP在订单支付，银行转账等场景必须使用
+17.BASE理论（基本可用Basically available，软状态Soft state，最终一致性Eventually consistency)
+	基本可用：当系统无法满足全部可用时，保证核心业务，如订单支付一定不能出错
+	软状态：存在中间状态，不会立即出结果，如提示处理中。但最终是正确的
+	最终一致性：退款操作，不会立即退款到账，而是过一会到账，舍弃强一致性，实现最终一致性
+	
+	CP就是实现强一致性，AP需要实现最终一致性
+	
+	seate框架可实现强一致性，消息队列可实现最终一致性
+18.抽取公共服务messagesdk，其他服务可以调用，通过一个抽象类，自己实现了一个简单的消息队列，其他类可以继承并重写执行方法，分阶段完成任务
+19.countDownLatch的作用：一个辅助同步类，倒数计数器。当一组线程正在执行时，会使之后的线程处于等待状态，这组线程每执行完一个，可使计数-1，释放一个线程。在计数到达0前，await会一直阻塞，直到计数归0或达到设置时间，之后会释放所有等待线程，超时还未完成的任务也会结束。
+20.页面静态化: 在tomcat里进行渲染，对模板进行数据填充，性能不好。页面静态化则将生成htnl页面的过程提前，提前使用模板引擎生成html，客户端通过nginx来直接请求html页面。由于是静态页面，可以使用nginx等高性能的web服务器，并发性能高。对于不经常修改的页面，可以使用页面静态化；但对于频繁修改的页面，频繁使用页面静态化会造成维护静态化页面的工作量很大。
+	将页面静态化，上传至minio，在访问时通过nginx代理到minio，获取静态资源，就不需要再频繁使用tomcat来进行模板渲染
+21.远程调用接口 openfeign：远程调用接口时，序列化会出问题，需要在被调用的接口的po上加上序列化方式，项目中存在localtime的转化问题
+22.服务雪崩与熔断降级
+	①在feignclient接口处指定下游服务熔断后，上游服务的降级方法，通过fallback指定降级方法的类，该类需要继承feignclient接口，并实现降级方法
+	该方法无法获取熔断的错误信息
+	②在feignclient接口处，通过fallbackFactory指定，可以拿到熔断的异常信息
+23.全文检索：通过对内容中的词建立索引，从而实现通过关键字查询，得到文章的名称
+	elasticsearch可实现全文检索
+	kibana：开源的数据分析和可视化平台，通过可视化界面访问elasticsearch的索引库，并可以生成一个数据表
+	开发中主要使用kibana通过api对elasticsearch进行索引和搜索操作，通过浏览器访问
+24.索引同步:将数据库的更新数据同步写入elasticsearch索引
+实时性高：①直接在service写代码，耦合度太高，有太多重复代码
+	②使用alibaba的canal来将索引信息同步到elastic以及kafka消息队列
+		Canal通过mysql的二进制日志文件，分析，并对elastic、MQ等写数据
+实时性不高：①MQ消息队列，但要保证MQ的可靠性（实现起来较为繁琐）
+	   ②Logstash
+	   ③任务调度 项目中使用这个（因为实时性要求不高）
+25.认证授权、单点登陆以及第三方认证
+	认证授权：登录用户，并赋予用户的权限，只能修改本机构的课程
+	单点登陆：只用登陆一次，就可以对门户的所有网页进行操作，而不需要每次操作都登陆一次，spring security框架+OAuth2协议
+	第三方认证：第三方软件登陆，如微信、qq登陆
+26.spring security认证框架(原理：基于过滤器和拦截器)
+	加上依赖后，访问需要登陆
+27.OAuth2认证协议 微信二维码扫描后，网站发起请求，用户同意，微信下发授权码，网站携带授权码申请令牌，微信下发令牌，网站拿到令牌后，就可以携带令牌获取服务信息了
+        该过程：
+	客户端：网站
+	资源拥有者：微信
+	授权服务器：微信
+	资源服务器：微信
+28.授权码模式：先要授权码，拿到令牌，就可以访问资源了
+     密码模式：直接输入账号密码，就能拿到令牌了
+29.普通令牌每次访问资源都需要调用认证服务来验证令牌
+	jwt令牌(JSON Web Token)：可以完成让资源服务自己校验令牌（不需要存在session，用户信息存在客户端）
+		无状态认证：令牌较长，是一个json格式，分三个部分，前两部分很容易就可以还原拿到，第三部分是签名，对前两部分进行加密，防止被篡改，提高安全性
+			头部：令牌类型（jwt），使用的哈希算法，用的是 Base64Url编码
+			内容：存放有效信息：签发者，过期时间，面向的用户，权限等，用的是 Base64Url编码
+			签名：按指定算法对前两部分加密，服务端会通过本地密钥对该部分进行本地验证，计算的值与该部分一样则验证通过，验证不通过则说明前两部分被篡改了
+				加密方式：对称加密：认证服务和其他服务密钥一样
+					非对加密：两个密钥，一个公钥，一个私钥，安全性更高，但性能不好
+30.不用每服务都对令牌校验合法性，只需要网关进行统一校验，再将请求转发至微服务，微服务来给对应用户的权限
+	（授权在微服务，网关只做认证）（此项目网关的作用：路由转发+令牌合法性校验+白名单维护（不需要认证的URL直接放行））
+31.认证需要自定义UserDetailsService，当收到请求时，查询数据库用户信息，拿到密码，封装返回一个UserDetails对象给spring security框架
+	由框架进行密码比对，并决定发布令牌
+	令牌需要扩展信息，除了有账号，密码，还应有头像，公司等信息，在生成UserDetails时，添加更多信息，通过将对象转成json传入UserDetails的username中，在获取令牌后，微服务可再将json转为对象，从而获取更多信息
+32.一个认证接口需要支持多种认证方式：创建类继承spring security中的DaoAuthenticationProvider类，并注入自己定义的UserDetailsService类，屏蔽掉密码对比验证的方法，实现自己的验证方式
+	设计同一个接口AuthService，实现不同的继承类，分别实现不同的认证方式
+	在UserDetailsService中，根据请求的json中authType，来从ApplicationContext上下文中，拿到相对应的AuthService继承类，并实现不同的认证方式
+33.验证码的生成与验证：redis做缓存
+34.微信扫码过程（参照官方的接口文档）
+	网站请求微信服务，生成二维码
+	客户扫二维码，申请登陆网站
+	网站收到客户登陆请求，去请求微信OAuth2.0授权拿授权码code（临时票据）
+	微信向客户发起确认
+	客户同意确认
+	微信向网站服务发布授权码code，并重定向到认证服务
+	网站服务拿授权码去微信申请令牌token
+	微信确认授权码正确后返回token
+	网站可通过令牌访问微信，并拿到用户信息，拿到后便认为是合法用户，并保存到数据库
+	得到用户信息后携带用户名重定向，访问认证服务，走wx登陆的验证流程，不需要验证密码，只需数据库存在即可，直接将用户信息封装为json，返回UserDetails，并返回业务需要的令牌
+	
+	在服务上线到公网后，需要在微信注册，上传营业执照等信息，以及开放的域名
+	由于微信服务在公网，开发环境下需要内网穿透
+35.和第三方进行数据交互，要用restTemplate，这里用在访问微信api接口
+36.RBAC
+	基于角色的访问控制（Role-Based Access Control）：按角色分配权限，访问资源时判断角色（如是否为经理），当需要改变时（如经理和部长都可以访问），需要修改业务代码，扩展性不强
+	基于资源的访问控制（Resource-Based Access Control）：对资源访问设置权限，为人员分配该访问权限，可以灵活对人员进行管理，通过修改数据库人员的权限（是否可以访问资源），而不需要对业务代码进行修改，扩展性更强
+37.权限管理：数据库表
+38.细粒度权限：不同用户查到的数据不一样
+	可以根据机构id查询
+39.选课学习系统
+	免费的直接入库，选课状态为已选择
+	收费的需要先支付，选课状态为待支付和已选择
+
+	包括选课记录表和我的课程表
+	选课记录表为添加课程后的记录，包括已支付和未支付以及免费的课程，点击加入学习后，便添加到这里
+	我的课程表为选课成功后的记录，包括免费的，已支付的，和已支付的时间期限，可以根据表内容获取学习资格字段（即课程状态）
+40.支付宝支付
+	（练习）沙箱环境：虚拟的支付
+		appid：2021000122683188
+		公钥：MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyN8IvfYYqyVsfbJLgfQULlNomfDQ0+LsQ6sAvBxHKr/MByKfpbj6wgTpkW7L5fJRWJHrmghL2eObXpYMyqUn6eaTdwbi634ShklhKDMOiHyjTSYcwTopVgTxN/ls/Xzkg5++jqBBSooJ6ExeIsiVnMBWmFYnbYnUg22o5OPlkU0VnEY1bMRknJFAk7KOl0drWBVBRa6ZozF5T1MxlLqCbkpBt4JvatXp33tbzANp0CGoFONz131fPiEIWJsg3IkTNJwg4Ofvvr3009kjaJTQNGLgLDllxblQEqei6nMmQ6Fw7RQLcXNez9f+kEXqufHMrZHdngn/E+hAivz0bDHmvwIDAQAB
+		java应用私钥：MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDI3wi99hirJWx9skuB9BQuU2iZ8NDT4uxDqwC8HEcqv8wHIp+luPrCBOmRbsvl8lFYkeuaCEvZ45telgzKpSfp5pN3BuLrfhKGSWEoMw6IfKNNJhzBOilWBPE3+Wz9fOSDn76OoEFKignoTF4iyJWcwFaYVidtidSDbajk4+WRTRWcRjVsxGSckUCTso6XR2tYFUFFrpmjMXlPUzGUuoJuSkG3gm9q1enfe1vMA2nQIagU43PXfV8+IQhYmyDciRM0nCDg5+++vfTT2SNolNA0YuAsOWXFuVASp6LqcyZDoXDtFAtxc17P1/6QReq58cytkd2eCf8T6ECK/PRsMea/AgMBAAECggEAQpZU0ovq/4kHXt+k0i50Jis2KJnA0AyQX5onQzRojw5HdzIOFCSu03RHbRN6ef6K4r50iHopktA1p/Q7x01aXto1liZtQL1pLKTUlTvfnHUcuS1iKNe77izzPafsbldhdRSWWbdcDXaW9C+koQk3N2A3FIayyUgAb5UBgObfKfv6BqGIvdWETcfQ2uwm5ACd++grjRyYCZL5qFhuU2UZqrjcKrAYLlc2olSkazTsyP5TE3Yz+fVCW8+T+qgILbhX1F0JG/prl28c2jARf+uhEKpucTeifTpxZ1rpE05q5MfHRg1IUWDCaUkP8iwcdJVNOx+LE5AumWTp2T/6FDSn2QKBgQDxEi2A3WbbPMcuJA9RVozt2J1A3WqcvLHbtrB87RU8DkaSoYpW9lsZVncnh0CPqA55zT0+jM+5fGa76KpTVvGoGAcjfI4y5K3voxMGaOImPOdhSTiRyuHQjqCaVqTp2Ui0Qxqq9oE8HluJjck5a59YkAQyoYnbKCckkPzrQm/J+wKBgQDVT4x2rf/2ARUpatRwMRjstLegwYlwY9pY2LnRO3dykNz82fy6YYPjZ/7Paf5TC8r4Phbj4GMNnfoTAD5CPe3MRXkOlY2ILjmW82rUNhb6eB5nSceHDsfRgkGX3TZFhZgk6n6xXgcf7HIt0mW1AnY1F2esz8FERaVVFAhEyUnfDQKBgDN8i2VjY+1dDLlJEFBx6MV/pw5Me9Gf52iimw0DYa6i6eW1RKOQGCLQOcCifWJxJS5UbEkor9DQxexKI96Kyi/5ecTVfFVYS+HLdWvACNTb2xsHFWLl7tapL5nm+W/MbV+6mT58SVu6rBgzxQ9TcgPrNkpN//BjogCISsxAMznzAoGBAJcgpQPwg0hnu/Z8GcbjAiWyY+chN57JIAmSgxQabaZdvDPovYXPUQHszDtnfSiZUlROqSkJ8SPUqTiNE48bET+IeRw8GOpC1cp861Muf1k1gVTskNC/SBLHlnFh6PGYlRKSkPBZDfMwMjUEu8pi1B0JWAq3ptYYAeslJjaV5iCBAoGAFI5iOM3nAkCCKunc/y89JXE1KUa3d3vfeRvz9NuQCpQCTdnbjOXS5IhRUbj/reoW2Mlt8i21BVieJFdzpJNCvQX0CxqFimPeNmk3gqkqnicT3jQqcctHHpMOmaBlkgdNNBx0iiwpiM5nsja59mKeyXQ/EW8uYN9izOkHNfPTBnA=
+		支付宝公钥：MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtj75gQ61vLKcIn2P8k5iPWBH8B/DIGcUV9zM4Kurtq2h4qHuENNXhKTkso6XKIKr6Uc7ZffXIWnPqIk5R+eCkjwSVSTRcad9cvdZv+bOqnbtsSRvpD3ipG7hPzMLA2YbCzvTWbvCXF7uvIemblb8ZeGB9igjNCbHBYA/5Of3y+pUSmZdb2x870PXZ+WAlaQj5/PTXEUoBHOu8aGm1PIDFaQss9SclVxZl44rt1Jbt2NB9WNCqGxnhGdzqGmrLJD/UjyyN0NyWOXM9D3fhRWBuIP/cLe/o/50kipk7LAmlJwGC6rNu4fNSgPw5Id5lYEumo7pYAiVVepeyqpFTVj6DwIDAQAB
+	
+	支付流程：
+		用户下单-商户系统服务向支付宝生成订单信息并构造支付请求-发送请求-支付宝收到后向用户展示支付信息-用户输入支付密码确认支付-支付宝收到向页面返回支付结果（可以主动查询，也可以支付结果通知，即订单支付时，指定结果接收地址，支付后会被告知支付结果，一般两个都用，以核对准确的支付信息）-商户系统服务对返回数据进行处理-向用户展示订单信息-关闭交易接口
+	订单查询：
+		用户点击查询向商户系统发起请求-商户系统向支付宝发起请求-返给微服务-返给用户
+
+	支付宝提供了SDK工具
+
+
+
+	

@@ -17,7 +17,7 @@ import com.la.xuecheng.content.model.po.CourseBase;
 public interface CourseBaseInfoService {
 
     //课程分页查询
-    public PageResult<CourseBase> queryCourseBaseList(PageParams pageParams, QueryCourseParamsDto queryCourseParamsDto);
+    public PageResult<CourseBase> queryCourseBaseList(Long companyId, PageParams pageParams, QueryCourseParamsDto queryCourseParamsDto);
 
     //新增课程
     public CourseBaseInfoDto createCourseBase(Long companyId, AddCourseDto addCourseDto);

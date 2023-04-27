@@ -92,12 +92,22 @@ public class MediaFileServiceImpl implements MediaFileService {
 
    }
 
-   //@Transactional
-   //有网络请求时，不用此处用事务控制，否则会导致网络慢时
-   //上传文件一直占用事务，数据库连接池不够用
-   //要在单独操作数据库的函数中使用
-   @Override
-   public UploadFileResultDto upLoadFile(Long companyId, UploadFileParamsDto uploadFileParamsDto, String localFilePath) {
+
+    /**
+     *
+     * @param companyId
+     * @param uploadFileParamsDto
+     * @param localFilePath
+     * @param objectName 如果传了objectName，则使用，否则用用年月日格式
+     * @return
+     */
+    //@Transactional
+    //有网络请求时，不用此处用事务控制，否则会导致网络慢时
+    //上传文件一直占用事务，数据库连接池不够用
+    //要在单独操作数据库的函数中使用
+
+    @Override
+   public UploadFileResultDto upLoadFile(Long companyId, UploadFileParamsDto uploadFileParamsDto, String localFilePath, String objectName) {
         //1.上传文件
         //得到扩展名
         String filename = uploadFileParamsDto.getFilename();
@@ -109,7 +119,9 @@ public class MediaFileServiceImpl implements MediaFileService {
         //文件的md5值
        String fileMd5 = getFileMd5(new File(localFilePath));
        //文件对象名
-       String objectName = folderPath + fileMd5 + extension;
+       if(StringUtils.isEmpty(objectName)){
+            objectName = folderPath + fileMd5 + extension;
+       }
        //将文件信息保存到文件数据库
        boolean res = addMediaFilesToMinIO(mimeType, localFilePath, bucket_mediafiles, objectName);
 

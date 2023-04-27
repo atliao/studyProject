@@ -9,8 +9,11 @@ import com.la.xuecheng.content.model.dto.EditCourseDto;
 import com.la.xuecheng.content.model.dto.QueryCourseParamsDto;
 import com.la.xuecheng.content.model.po.CourseBase;
 import com.la.xuecheng.content.service.CourseBaseInfoService;
+import com.la.xuecheng.content.util.SecurityUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,9 +32,18 @@ public class CourseBaseInfoController {
     CourseBaseInfoService courseBaseInfoService;
 
     @ApiOperation("课程查询接口")
+    @PreAuthorize("hasAuthority('xc_teachmanager_course_list')")//指定权限表示符
     @PostMapping("/course/list")
     public PageResult<CourseBase> list(PageParams pageParams, @RequestBody(required = false) QueryCourseParamsDto queryCourseParamsDto){
-        PageResult<CourseBase> pageResult = courseBaseInfoService.queryCourseBaseList(pageParams, queryCourseParamsDto);
+        //根据令牌拿到当前用户信息
+        SecurityUtil.XcUser user = SecurityUtil.getUser();
+        //拿到companyId
+        String companyIdStr = user.getCompanyId();
+        Long companyId = null;
+        if(!companyIdStr.isEmpty()){
+            companyId = Long.parseLong(companyIdStr);
+        }
+        PageResult<CourseBase> pageResult = courseBaseInfoService.queryCourseBaseList(companyId, pageParams, queryCourseParamsDto);
         return pageResult;
     }
 
@@ -46,6 +58,10 @@ public class CourseBaseInfoController {
     @ApiOperation("查询课程")
     @GetMapping("/course/{id}")
     public CourseBaseInfoDto queryCourseBase(@PathVariable Long id){
+        //获取用户信息，从上下文拿到认证信息
+        /*Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        System.out.println(principal.toString());*/
+        SecurityUtil.XcUser user = SecurityUtil.getUser();
         CourseBaseInfoDto courseBaseInfoDto = courseBaseInfoService.getCourseBaseInfo(id);
         return courseBaseInfoDto;
     }

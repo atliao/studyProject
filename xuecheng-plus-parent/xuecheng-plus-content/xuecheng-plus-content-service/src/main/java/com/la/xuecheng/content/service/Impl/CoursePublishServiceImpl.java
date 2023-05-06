@@ -3,6 +3,7 @@ package com.la.xuecheng.content.service.Impl;
 import com.alibaba.fastjson.JSON;
 import com.la.xuecheng.base.exception.CommonError;
 import com.la.xuecheng.base.exception.XuechengPlusException;
+import com.la.xuecheng.base.utils.JsonUtil;
 import com.la.xuecheng.content.config.MultipartSupportConfig;
 import com.la.xuecheng.content.feignClient.MediaServiceClient;
 import com.la.xuecheng.content.mapper.CourseBaseMapper;
@@ -21,12 +22,14 @@ import com.la.xuecheng.content.service.CoursePublishService;
 import com.la.xuecheng.content.service.TeachPlanService;
 import com.la.xuecheng.messagesdk.model.po.MqMessage;
 import com.la.xuecheng.messagesdk.service.MqMessageService;
+import freemarker.cache.ClassTemplateLoader;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
@@ -39,6 +42,7 @@ import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Mr.M
@@ -73,6 +77,9 @@ public class CoursePublishServiceImpl implements CoursePublishService {
 
     @Resource
     MediaServiceClient mediaServiceClient;
+
+    @Resource
+    RedisTemplate redisTemplate;
 
 
 
@@ -220,7 +227,9 @@ public class CoursePublishServiceImpl implements CoursePublishService {
             //拿到classpath路径
             String classpath = this.getClass().getResource("/").getPath();
             //指定模板的目录
-            configuration.setDirectoryForTemplateLoading(new File(classpath+"/templates/"));
+            //configuration.setDirectoryForTemplateLoading(new File(classpath+"/templates/"));
+            //更改为如下方式，否则打包部署到服务器上之后，无法找到templates目录
+            configuration.setTemplateLoader(new ClassTemplateLoader(this.getClass().getClassLoader(),"/templates"));
             //指定编码
             configuration.setDefaultEncoding("utf-8");
 
@@ -278,5 +287,54 @@ public class CoursePublishServiceImpl implements CoursePublishService {
         return coursePublish ;
     }
 
+    @Override
+    public CoursePublish getCoursePublishCache(Long courseId) {
+        //synchronized (this){
+            Object jsonObj = redisTemplate.opsForValue().get("courseId:"+courseId);
+            if(jsonObj != null){
+                //System.out.println("**************redis****************");
+                //直接返回数据
+                String str = jsonObj.toString();
+                //防止缓存穿透
+                if("null".equals(str)){
+                    return null;
+                }
+                CoursePublish coursePublish = JSON.parseObject(str, CoursePublish.class);
+                return coursePublish;
+            }
+        //分布式锁1：调用redis set nx方法，拿到锁
+        //Boolean lock = redisTemplate.opsForValue().setIfAbsent("courselock:" + courseId, "lock");
+        //if(lock){
+        synchronized (this) {
 
+                //使用同步锁锁住该部分的话，需要在内部再次查询一下redis缓存
+                // 防止第一个查询数据库还没有把数据放入缓存，后续的请求已经在排队等待锁了
+
+                //再次查询缓存
+                jsonObj = redisTemplate.opsForValue().get("courseId:"+courseId);
+                if(jsonObj != null){
+                    //System.out.println("**************redis****************");
+                    //返回数据
+                    String str = jsonObj.toString();
+                    //防止缓存穿透
+                    if("null".equals(str)){
+                        return null;
+                    }
+                    CoursePublish coursePublish = JSON.parseObject(str, CoursePublish.class);
+                    return coursePublish;
+                }
+
+                //从数据库查询
+                CoursePublish coursePublish = getCoursePublish(courseId);
+                //if(coursePublish != null){
+                System.out.println("**************mysql****************");
+                //存入redis
+                String jsonString = JSON.toJSONString(coursePublish);
+                redisTemplate.opsForValue().set("courseId:" + courseId, jsonString, 300, TimeUnit.SECONDS);
+                //}
+                return coursePublish;
+            }
+        //return null;
+        //}
+    }
 }

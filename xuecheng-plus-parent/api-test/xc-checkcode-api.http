@@ -1,5 +1,8 @@
 ### 申请验证码
 POST {{checkcode_host}}/checkcode/pic
 
+### 申请验证码
+POST 192.168.101.129:63075/checkcode/pic
+
 ### 校验验证码
 POST {{gateway_host}}/checkcode/verify?key=checkcode:3991d0ed13014c9089057529de2e1904&code=l7ez

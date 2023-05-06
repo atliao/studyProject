@@ -508,5 +508,16 @@ rdb-save-incremental-fsync yes
 
 docker run -p 6379:6379 --name redisC -v /usr/local/redis/data:/data -v /usr/local/redis/conf/redis.conf:/etc/redis/redis.conf --restart=always -d redis:6.2.7 redis-server /etc/redis/redis.conf --appendonly yes --requirepass 125769
 
+*************************************************RabiitMQ***************************************************
+docker run -p 15672:15672 -p 5672:5672 -d --restart=always --hostname myRabbit --name rabbitC  rabbitmq:3.8.34
+
+docker exec -it rabbitC bash
+
+rabbitmq-plugins enable rabbitmq_management
+
+
+
+
+
 
 

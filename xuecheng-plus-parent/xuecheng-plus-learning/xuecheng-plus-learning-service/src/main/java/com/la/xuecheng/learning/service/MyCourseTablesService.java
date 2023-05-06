@@ -1,14 +1,17 @@
 package com.la.xuecheng.learning.service;
 
+import com.la.xuecheng.base.model.PageResult;
+import com.la.xuecheng.learning.model.dto.MyCourseTableParams;
 import com.la.xuecheng.learning.model.dto.XcChooseCourseDto;
 import com.la.xuecheng.learning.model.dto.XcCourseTablesDto;
+import com.la.xuecheng.learning.model.po.XcCourseTables;
 
 /**
  * @author LA
  * @createDate 2023-04-27-14:23
  * @description 选课相关的接口
  */
-public interface MyCourseTableService {
+public interface MyCourseTablesService {
 
 
     /**
@@ -30,4 +33,8 @@ public interface MyCourseTableService {
      * @date 2022/10/3 7:37
      */
     public XcCourseTablesDto getLearningStatus(String userId, Long courseId);
+
+    boolean saveChooseCourseSuccess(String chooseCourseId);
+
+    public PageResult<XcCourseTables> mycoursetables(MyCourseTableParams params);
 }

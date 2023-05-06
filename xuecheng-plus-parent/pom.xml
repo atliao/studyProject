@@ -14,6 +14,11 @@
         <module>xuecheng-plus-gateway</module>
         <module>xuecheng-plus-media</module>
         <module>xuecheng-plus-message-sdk</module>
+        <module>xuecheng-plus-checkcode</module>
+        <module>xuecheng-plus-auth</module>
+        <module>xuecheng-plus-orders</module>
+        <module>xuecheng-plus-learning</module>
+        <module>xuecheng-plus-search</module>
     </modules>
     <name>xuecheng-plus-parent</name>
     <description>xuecheng-plus-parent</description>
@@ -25,7 +30,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <spring-cloud-alibaba.version>2.2.6.RELEASE</spring-cloud-alibaba.version>
         <spring-cloud.version>Hoxton.SR9</spring-cloud.version>
-        <spring-boot.version>2.3.2.RELEASE</spring-boot.version>
+        <spring-boot.version>2.3.4.RELEASE</spring-boot.version>
         <org.mapstruct.version>1.3.1.Final</org.mapstruct.version>
         <org.projectlombok.version>1.18.8</org.projectlombok.version>
         <javax.servlet-api.version>4.0.1</javax.servlet-api.version>

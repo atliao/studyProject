@@ -1,16 +1,19 @@
 package com.la.xuecheng.learning.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.la.xuecheng.base.exception.XuechengPlusException;
+import com.la.xuecheng.base.model.PageResult;
 import com.la.xuecheng.content.model.po.CoursePublish;
 import com.la.xuecheng.learning.feignclient.ContentServiceClient;
 import com.la.xuecheng.learning.mapper.XcChooseCourseMapper;
 import com.la.xuecheng.learning.mapper.XcCourseTablesMapper;
+import com.la.xuecheng.learning.model.dto.MyCourseTableParams;
 import com.la.xuecheng.learning.model.dto.XcChooseCourseDto;
 import com.la.xuecheng.learning.model.dto.XcCourseTablesDto;
 import com.la.xuecheng.learning.model.po.XcChooseCourse;
 import com.la.xuecheng.learning.model.po.XcCourseTables;
-import com.la.xuecheng.learning.service.MyCourseTableService;
+import com.la.xuecheng.learning.service.MyCourseTablesService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -26,7 +29,7 @@ import java.util.List;
  */
 @Slf4j
 @Service
-public class MyCourseTableServiceImpl implements MyCourseTableService {
+public class MyCourseTablesServiceImpl implements MyCourseTablesService {
 
     @Resource
     XcChooseCourseMapper xcChooseCourseMapper;
@@ -92,6 +95,58 @@ public class MyCourseTableServiceImpl implements MyCourseTableService {
             courseTablesDto.setLearnStatus("702001");
             return courseTablesDto;
         }
+
+    }
+
+    @Override
+    public boolean saveChooseCourseSuccess(String chooseCourseId) {
+
+        //根据选课id查询选课表
+        XcChooseCourse chooseCourse = xcChooseCourseMapper.selectById(chooseCourseId);
+        if(chooseCourse == null){
+            log.debug("接收购买课程的消息，根据选课id从数据库找不到选课记录,选课id:{}",chooseCourseId);
+            return false;
+        }
+        //选课状态
+        String status = chooseCourse.getStatus();
+        //只有当未支付时才更新为已支付
+        if("701002".equals(status)){
+            //更新选课记录的状态为支付成功
+            chooseCourse.setStatus("701001");
+            int i = xcChooseCourseMapper.updateById(chooseCourse);
+            if(i<=0){
+                log.debug("添加选课记录失败:{}",chooseCourse);
+                XuechengPlusException.cast("添加选课记录失败");
+            }
+
+            //向我的课程表插入记录
+            XcCourseTables xcCourseTables = addCourseTabls(chooseCourse);
+            return true;
+        }
+
+
+        return false;
+    }
+
+    @Override
+    public PageResult<XcCourseTables> mycoursetables(MyCourseTableParams params) {
+        //页码
+        long pageNo = params.getPage();
+        //每页记录数
+        long pageSize = params.getSize();
+        //分页条件
+        Page<XcCourseTables> page = new Page<>(pageNo, pageSize);
+        //根据用户id查询
+        String userId = params.getUserId();
+        LambdaQueryWrapper<XcCourseTables> lambdaQueryWrapper = new LambdaQueryWrapper<XcCourseTables>().eq(XcCourseTables::getUserId, userId);
+
+        //分页查询
+        Page<XcCourseTables> pageResult = xcCourseTablesMapper.selectPage(page, lambdaQueryWrapper);
+        List<XcCourseTables> records = pageResult.getRecords();
+        //记录总数
+        long total = pageResult.getTotal();
+        PageResult<XcCourseTables> courseTablesResult = new PageResult<>(records, total, pageNo, pageSize);
+        return courseTablesResult;
 
     }
 

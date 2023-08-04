@@ -83,6 +83,7 @@ public class CoursePublishController {
         if(coursePublish == null){
             return coursePreviewDto;
         }
+
         //开始向coursePreviewDto填充数据
         CourseBaseInfoDto courseBaseInfoDto = new CourseBaseInfoDto();
         BeanUtils.copyProperties(coursePublish,courseBaseInfoDto);
